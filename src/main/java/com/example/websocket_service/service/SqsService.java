@@ -42,6 +42,8 @@ public class SqsService {
         String agentId = extractMachineId(body);
         String action = extractAction(body);
 
+        webSocketService.resetResponse();
+
         webSocketService.sendCommandToAgent(agentId, action);
         String result = webSocketService.getResponse();
 

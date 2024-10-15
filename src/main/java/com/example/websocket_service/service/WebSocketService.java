@@ -14,7 +14,9 @@ import java.net.InetSocketAddress;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,19 +27,11 @@ import org.springframework.stereotype.Component;
 public class WebSocketService extends TextWebSocketHandler {
   private static final Logger logger = LoggerFactory.getLogger(WebSocketService.class);
 
-  private String response;
+  private CompletableFuture<String> response = new CompletableFuture<>();
   private Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
 
   @Autowired
   private AgentRepository agentRepository;
-
-  public String getResponse() {
-    return response;
-  }
-
-  public void setResponse(String response) {
-    this.response = response;
-  }
 
   @Override
   public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -51,6 +45,7 @@ public class WebSocketService extends TextWebSocketHandler {
       agent.setStatus(Status.ACTIVE);
       agentRepository.save(agent);
       logger.info("Agent already registered: " + agent);
+      this.resetResponse();
       sessions.put(agent.getId(), session);
     } else {
       session.sendMessage(new TextMessage("username request"));
@@ -76,8 +71,7 @@ public class WebSocketService extends TextWebSocketHandler {
       sessions.put(agent.getId(), session);
       session.sendMessage(new TextMessage("You are connected"));
     } else {
-      logger.info(msg);
-      setResponse(msg);
+      response.complete(msg);
     }
   }
 
@@ -107,5 +101,22 @@ public class WebSocketService extends TextWebSocketHandler {
       logger.error("Agent with ID " + agentId + " is not connected");
       throw new Error("Agent with ID " + agentId + " is not connected");
     }
+  }
+
+  // public String getResponse() throws InterruptedException, ExecutionException {
+  //   try {
+  //     return response.get(1, TimeUnit.HOURS);
+  //   } catch (TimeoutException e) {
+  //     logger.error("Timeout while waiting for the agent's response");
+  //     return "Timeout: no response from agent";
+  //   }
+  // }
+
+  public String getResponse() throws InterruptedException, ExecutionException {
+    return response.get();
+  }
+
+  public void resetResponse() {
+    response = new CompletableFuture<>();
   }
 }
