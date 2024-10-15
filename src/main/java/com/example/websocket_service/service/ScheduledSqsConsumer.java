@@ -9,7 +9,7 @@ public class ScheduledSqsConsumer {
   @Autowired
   private SqsService sqsService;
 
-  @Scheduled(fixedRate = 10000)
+  @Scheduled(fixedRate = 1000)
   public void run() {
     try {
       sqsService.consumeCommandQueue();

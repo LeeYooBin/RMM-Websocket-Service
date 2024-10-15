@@ -35,6 +35,10 @@ public class SqsService {
 
       List<Message> messages = sqsClient.receiveMessage(receiveRequest).messages();
 
+      if (messages.isEmpty()) {
+        return;
+      }
+
       for (Message message : messages) {
         logger.info("Message received: " + message.body());
 
