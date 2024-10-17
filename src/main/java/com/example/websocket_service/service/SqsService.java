@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -12,7 +13,7 @@ import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.*;
 
 import java.util.List;
-
+import com.example.websocket_service.model.Response;;
 @Service
 public class SqsService {
   private static final Logger logger = LoggerFactory.getLogger(SqsService.class);
@@ -22,6 +23,9 @@ public class SqsService {
 
   @Autowired
   private WebSocketService webSocketService;
+
+  @Autowired
+  private ObjectMapper objectMapper;
 
   private final String commandQueueUrl = "https://localhost.localstack.cloud:4566/000000000000/command-queue";
   private final String responseQueueUrl = "https://localhost.localstack.cloud:4566/000000000000/response-queue";
@@ -62,9 +66,18 @@ public class SqsService {
 
   public void sendResponseToQueue(String agentId, String result) {
     try {
+      var response = new Response(agentId, result);
+      String jsonResponse;
+
+      try {
+        jsonResponse = objectMapper.writeValueAsString(response);
+      } catch (JsonProcessingException e) {
+        throw new RuntimeException("Error parsing to json", e);
+      }
+      
       SendMessageRequest sendMessageRequest = SendMessageRequest.builder()
         .queueUrl(responseQueueUrl)
-        .messageBody("{\"agentId\":\"" + agentId + "\", \"result\":\"" + result + "\"}")
+        .messageBody(jsonResponse)
         .build();
 
       sqsClient.sendMessage(sendMessageRequest);
@@ -86,7 +99,6 @@ public class SqsService {
 
   private String extractMachineId(String messageBody) {
     try {
-      ObjectMapper objectMapper = new ObjectMapper();
       JsonNode jsonNode = objectMapper.readTree(messageBody);
       return jsonNode.get("machine_id").asText();
     } catch (Exception e) {
@@ -96,7 +108,6 @@ public class SqsService {
 
   private String extractAction(String messageBody) {
     try {
-      ObjectMapper objectMapper = new ObjectMapper();
       JsonNode jsonNode = objectMapper.readTree(messageBody);
       return jsonNode.get("action").asText();
     } catch (Exception e) {
